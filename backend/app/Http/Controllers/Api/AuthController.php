@@ -15,11 +15,10 @@ class AuthController extends Controller
 {
     /**
      * POST /api/login
-     *
-     * Authenticate using username and password.
      */
-    public function login(LoginRequest $request): JsonResponse
-    {
+    public function login(
+        LoginRequest $request
+    ): JsonResponse {
         $credentials = $request->validated();
 
         if (! Auth::guard('web')->attempt([
@@ -33,7 +32,6 @@ class AuthController extends Controller
             ]);
         }
 
-        // Prevent session fixation attacks
         $request->session()->regenerate();
 
         $user = Auth::guard('web')->user();
@@ -47,28 +45,31 @@ class AuthController extends Controller
     /**
      * GET /api/me
      *
-     * Return the authenticated user.
+     * Always return current access information.
      */
     public function me(Request $request): JsonResponse
     {
+        $user = User::query()
+            ->with([
+                'roles.permissions',
+                'permissions',
+            ])
+            ->findOrFail($request->user()->id);
+
         return response()->json([
-            'user' => $this->formatUser(
-                $request->user()
-            ),
+            'user' => $this->formatUser($user),
         ]);
     }
 
     /**
      * POST /api/logout
-     *
-     * Log out and invalidate the session.
      */
-    public function logout(Request $request): JsonResponse
-    {
+    public function logout(
+        Request $request
+    ): JsonResponse {
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
-
         $request->session()->regenerateToken();
 
         return response()->json([
@@ -77,21 +78,68 @@ class AuthController extends Controller
     }
 
     /**
-     * Consistent safe user response.
+     * Format authenticated user.
+     *
+     * Keeps role permissions and direct
+     * permissions correctly separated.
      */
     private function formatUser(User $user): array
     {
+        $user->loadMissing([
+            'roles.permissions',
+            'permissions',
+        ]);
+
+        $isSuperAdmin = $user->hasRole(
+            'Super Admin',
+            'web'
+        );
+
+        $directPermissions = $user
+            ->getDirectPermissions()
+            ->pluck('name')
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        $inheritedPermissions = $user
+            ->getPermissionsViaRoles()
+            ->pluck('name')
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        $effectivePermissions = $isSuperAdmin
+            ? ['*']
+            : $user->getAllPermissions()
+            ->pluck('name')
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
         return [
             'id' => $user->id,
             'username' => $user->username,
             'name' => $user->name,
             'email' => $user->email,
             'contact_no' => $user->contact_no,
-            'roles' => $user->getRoleNames()->values(),
-            'is_super_admin' => $user->hasRole(
-                'Super Admin',
-                'web'
-            ),
+
+            'roles' => $user
+                ->getRoleNames()
+                ->values()
+                ->all(),
+
+            'direct_permissions' => $directPermissions,
+
+            'inherited_permissions' =>
+            $inheritedPermissions,
+
+            'permissions' => $effectivePermissions,
+
+            'is_super_admin' => $isSuperAdmin,
         ];
     }
 }
