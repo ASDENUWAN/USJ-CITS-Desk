@@ -18,22 +18,39 @@ use Spatie\Permission\Models\Permission;
 
 class UserController extends Controller
 {
+
     /**
-     * GET /api/users
+     * GET /api/users?search=...&page=...
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $validated = $request->validate([
+            'search' => ['sometimes', 'string', 'max:100'],
+        ]);
+
+        $search = trim($validated['search'] ?? '');
+
         $users = User::query()
             ->with(['roles.permissions', 'permissions'])
+            ->when($search !== '', function ($query) use ($search) {
+                // Treat % and _ as literal search characters.
+                $term = addcslashes($search, '%_\\');
+                $like = "%{$term}%";
+
+                $query->where(function ($query) use ($like) {
+                    $query
+                        ->where('username', 'like', $like)
+                        ->orWhere('name', 'like', $like)
+                        ->orWhere('email', 'like', $like)
+                        ->orWhere('contact_no', 'like', $like);
+                });
+            })
             ->orderByDesc('id')
             ->paginate(20);
 
         return response()->json([
             'data' => $users->getCollection()
-                ->map(
-                    fn(User $user) =>
-                    $this->formatUser($user)
-                )
+                ->map(fn(User $user) => $this->formatUser($user))
                 ->values(),
 
             'meta' => [
@@ -44,6 +61,7 @@ class UserController extends Controller
             ],
         ]);
     }
+
 
     /**
      * POST /api/users
