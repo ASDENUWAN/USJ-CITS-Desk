@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
-
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePermissionRequest;
 use App\Support\RolePermissionGuard;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 
@@ -14,25 +14,67 @@ class PermissionController extends Controller
 {
     /**
      * GET /api/permissions
+     *
+     * Supports:
+     * ?search=tickets
+     * ?page=2
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $validated = $request->validate([
+            'search' => [
+                'sometimes',
+                'string',
+                'max:100',
+            ],
+        ]);
+
+        $search = trim(
+            $validated['search'] ?? ''
+        );
+
         $permissions = Permission::query()
             ->where('guard_name', 'web')
+            ->when(
+                $search !== '',
+                function ($query) use ($search) {
+                    // Escape SQL LIKE wildcards.
+                    $term = addcslashes(
+                        $search,
+                        '%_\\'
+                    );
+
+                    $query->where(
+                        'name',
+                        'like',
+                        "%{$term}%"
+                    );
+                }
+            )
             ->orderBy('name')
             ->paginate(50);
 
         return response()->json([
-            'data' => $permissions->getCollection()
+            'data' => $permissions
+                ->getCollection()
                 ->map(fn(Permission $permission) => [
                     'id' => $permission->id,
                     'name' => $permission->name,
-                ]),
+                ])
+                ->values(),
 
             'meta' => [
-                'current_page' => $permissions->currentPage(),
-                'last_page' => $permissions->lastPage(),
-                'total' => $permissions->total(),
+                'current_page' =>
+                $permissions->currentPage(),
+
+                'last_page' =>
+                $permissions->lastPage(),
+
+                'per_page' =>
+                $permissions->perPage(),
+
+                'total' =>
+                $permissions->total(),
             ],
         ]);
     }
@@ -49,7 +91,9 @@ class PermissionController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Permission created successfully.',
+            'message' =>
+            'Permission created successfully.',
+
             'data' => [
                 'id' => $permission->id,
                 'name' => $permission->name,
@@ -73,6 +117,7 @@ class PermissionController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            // Protect core and assigned permissions.
             $guard->assertPermissionDeletable(
                 $lockedPermission
             );
@@ -81,7 +126,8 @@ class PermissionController extends Controller
         });
 
         return response()->json([
-            'message' => 'Permission deleted successfully.',
+            'message' =>
+            'Permission deleted successfully.',
         ]);
     }
 }
