@@ -5,6 +5,9 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\PermissionController;
 
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\ProfileController;
+
 Route::middleware('auth:sanctum')->group(function () {
 
     // ROLE MANAGEMENT
@@ -59,4 +62,68 @@ Route::middleware('auth:sanctum')->group(function () {
         PermissionController::class,
         'destroy'
     ])->middleware('can:permissions.delete');
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| User Management and Profile Routes
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware('auth:sanctum')->group(function () {
+
+    // USER MANAGEMENT
+
+    Route::get('/users', [
+        UserController::class,
+        'index'
+    ])->middleware('can:users.view');
+
+    Route::post('/users', [
+        UserController::class,
+        'store'
+    ])->middleware('can:users.create');
+
+    Route::get('/users/{user}', [
+        UserController::class,
+        'show'
+    ])->middleware('can:users.view');
+
+    Route::patch('/users/{user}', [
+        UserController::class,
+        'update'
+    ])->middleware('can:users.update');
+
+    Route::delete('/users/{user}', [
+        UserController::class,
+        'destroy'
+    ])->middleware('can:users.delete');
+
+    // ROLE ASSIGNMENT
+
+    Route::put('/users/{user}/roles', [
+        UserController::class,
+        'syncRoles'
+    ])->middleware([
+        'can:users.update',
+        'can:roles.assign',
+    ]);
+
+    // DIRECT PERMISSION ASSIGNMENT
+
+    Route::put('/users/{user}/permissions', [
+        UserController::class,
+        'syncPermissions'
+    ])->middleware([
+        'can:users.update',
+        'can:permissions.assign',
+    ]);
+
+    // PERSONAL PROFILE
+
+    Route::patch('/profile', [
+        ProfileController::class,
+        'update'
+    ]);
 });
