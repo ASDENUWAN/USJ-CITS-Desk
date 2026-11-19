@@ -5,17 +5,21 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
 use LogicException;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     /**
-     * Fields allowed for mass assignment.
-     *
-     * Controllers must still validate and authorize
-     * which fields users are allowed to change.
+     * Use one permission guard for our application.
+     */
+    protected string $guard_name = 'web';
+
+    /**
+     * Mass assignable attributes.
      */
     protected $fillable = [
         'username',
@@ -26,7 +30,7 @@ class User extends Authenticatable
     ];
 
     /**
-     * Hide sensitive fields from JSON responses.
+     * Hide sensitive information from API responses.
      */
     protected $hidden = [
         'password',
@@ -34,7 +38,7 @@ class User extends Authenticatable
     ];
 
     /**
-     * Automatically cast and hash attributes.
+     * Attribute casting.
      */
     protected function casts(): array
     {
@@ -45,24 +49,18 @@ class User extends Authenticatable
     }
 
     /**
-     * Model lifecycle events.
+     * Model events.
      */
     protected static function booted(): void
     {
-        /**
-         * Set the default name to the username
-         * when a new user is created.
-         */
+        // Default display name = username
         static::creating(function (User $user): void {
             if (blank($user->name)) {
                 $user->name = $user->username;
             }
         });
 
-        /**
-         * Prevent changing the username
-         * after the account is created.
-         */
+        // Username cannot change after creation
         static::updating(function (User $user): void {
             if ($user->isDirty('username')) {
                 throw new LogicException(
