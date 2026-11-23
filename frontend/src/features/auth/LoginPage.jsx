@@ -6,7 +6,7 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
-  LockKeyRound,
+  LockKeyhole,
   ShieldCheck,
   TicketCheck,
   UserRound,
@@ -171,7 +171,7 @@ export default function LoginPage() {
 
             <div className="mb-8">
               <div className="mb-5 inline-flex rounded-xl bg-red-50 p-3 text-brand">
-                <LockKeyRound size={24} />
+                <LockKeyhole size={24} />
               </div>
 
               <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
@@ -235,7 +235,7 @@ export default function LoginPage() {
                 </label>
 
                 <div className="relative">
-                  <LockKeyRound
+                  <LockKeyhole
                     size={19}
                     aria-hidden="true"
                     className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
